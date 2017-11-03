@@ -44,6 +44,13 @@
         android:id="@+id/bntClear"
         android:textStyle="bold"
         android:layout_gravity="center_horizontal" />
+    <Button
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text="Volley"
+        android:id="@+id/btnVolley"
+        android:textStyle="bold"
+        android:layout_gravity="center_horizontal" />
 
     <ScrollView
         android:layout_width="fill_parent"

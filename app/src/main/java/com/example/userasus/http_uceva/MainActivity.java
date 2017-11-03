@@ -1,12 +1,15 @@
 package com.example.userasus.http_uceva;
 
+import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Html;
@@ -16,8 +19,16 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.example.userasus.http_uceva.datos.Conexion;
 import com.example.userasus.http_uceva.datos.ContractFeed;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 
 import java.io.BufferedReader;
@@ -35,9 +46,26 @@ public class MainActivity extends AppCompatActivity
     Button btnClear,btnSicn,BtnStop,btnVerFeed;
     TextView resultado;
     String datosConsultados="";
+
     Sincronizar sicn=null;
     boolean flagSinc = false;
     String URLConnect="http://ep00.epimg.net/rss/elpais/portada.xml";
+
+    //---
+    ProgressDialog progreso;
+    //https://developer.android.com/guide/topics/ui/dialogs.html?hl=es-419
+    //---
+
+    //FIREBASE
+    FirebaseDatabase database = FirebaseDatabase.getInstance();
+    //Para leer y escribir en la base de datos, necesitas una instancia de DatabaseReference:
+    DatabaseReference myRef = database.getReference();
+    //FIREBASE
+
+    //VOLLEY
+    RequestQueue queue;
+    String url ="http://www.google.com";
+    //VOLLEY
 
 
     Conexion con;
@@ -69,6 +97,11 @@ public class MainActivity extends AppCompatActivity
         resultado.setMovementMethod(LinkMovementMethod.getInstance());
 
 
+        //VOLLEY
+        queue = Volley.newRequestQueue(this);
+        //VOLLEY
+
+
     }
     @Override
     public void onClick(View v) {
@@ -92,6 +125,9 @@ public class MainActivity extends AppCompatActivity
             case R.id.btnVerFeed:
                 Intent consulta = new Intent(MainActivity.this,Datos.class);
                 startActivity(consulta.addFlags(consulta.FLAG_ACTIVITY_CLEAR_TOP | consulta.FLAG_ACTIVITY_SINGLE_TOP));
+                break;
+            case R.id.btnVolley:
+                ProbarVolley();
                 break;
             default:
                 break;
@@ -145,10 +181,31 @@ public class MainActivity extends AppCompatActivity
         if(activeNetwork!=null && isConnected){
             boolean isWiFi = activeNetwork.getType() == ConnectivityManager.TYPE_WIFI;
             boolean isMobile = activeNetwork.getType() == ConnectivityManager.TYPE_MOBILE;
-            Toast.makeText(this,"Iniciando : "+isConnected+" wifi:"+isWiFi+" movil: "+isMobile,Toast.LENGTH_SHORT).show();
-            sicn = new Sincronizar();
-            flagSinc=true;
-            sicn.execute();
+            //Toast.makeText(this,"Iniciando : "+isConnected+" wifi:"+isWiFi+" movil: "+isMobile,Toast.LENGTH_SHORT).show();
+
+            if(isMobile){
+                AlertDialog.Builder dialogo1 = new AlertDialog.Builder(this);
+                dialogo1.setTitle("Importante");
+                dialogo1.setMessage("¿ Acepta la ejecución de este programa con datos móviles ?");
+                dialogo1.setCancelable(false);
+                dialogo1.setPositiveButton("Confirmar2", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialogo1, int id) {
+                        sicn = new Sincronizar();
+                        flagSinc=true;
+                        sicn.execute();
+                    }
+                });
+                dialogo1.setNegativeButton("Cancelar", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialogo1, int id) {
+                        dialogo1.cancel();
+                    }
+                });
+                dialogo1.show();
+            }else{
+                sicn = new Sincronizar();
+                flagSinc=true;
+                sicn.execute();
+            }
         }else{
             Toast.makeText(this,"No hay conexión : "+isConnected,Toast.LENGTH_SHORT).show();
         }
@@ -198,6 +255,7 @@ public class MainActivity extends AppCompatActivity
             //http://jtomlinson.blogspot.com.co/2010/03/textview-and-html.html
             //resultado.setMovementMethod(LinkMovementMethod.getInstance());
             String text = "Visit my <a href=\"http://www.google.com\">Google</a>";
+            //progreso.show();
             resultado.setText(Html.fromHtml(text));
         }
         @Override
@@ -246,7 +304,8 @@ public class MainActivity extends AppCompatActivity
                                 insertarFeed(salidaBd);
                                 datosRespaldados++;
                                 //--respaldo bd
-
+                                k++;
+                                EscribirFirebase(k,salida);
                                 publishProgress(salida);
                                 Thread.sleep(2000);//2 segundo entre cada iteración
                             }
@@ -282,6 +341,7 @@ public class MainActivity extends AppCompatActivity
             }
             resultado.append(aVoid);*/
             Toast.makeText(getApplicationContext(),aVoid+"Sincronización terminada, "+datosRespaldados+" Feeds respaldados",Toast.LENGTH_SHORT).show();
+            //progreso.hide();
         }
 
         @Override
@@ -296,5 +356,29 @@ public class MainActivity extends AppCompatActivity
             sicn=null;
             flagSinc=false;
         }
+    }
+
+
+    public void EscribirFirebase(Integer id, String vale){
+        myRef.child("feeds").child(""+id).setValue(vale);
+    }
+
+    public void  ProbarVolley(){
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        // Display the first 500 characters of the response string.
+                        resultado.setText("Response is: "+ response.substring(0,500));
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                resultado.setText("That didn't work!");
+            }
+        });
+        // Add the request to the RequestQueue.
+        queue.add(stringRequest);
     }
 }
